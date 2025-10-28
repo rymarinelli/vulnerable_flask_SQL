@@ -1,0 +1,4 @@
+Flask>=2.2.5
+gunicorn>=20.1.0            # optional: for running in a production-like WSGI server
+python-dotenv>=1.0.0        # optional: load env vars from a .env file (useful for configs)
+Jinja2>=3.0                 # template engine (usually pulled in by Flask, but pinned here)
