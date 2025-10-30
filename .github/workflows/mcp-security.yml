@@ -68,26 +68,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COUNT=$(cat mcp_scan.json | jq -r '.findings | length')
-          REPORT=$(cat mcp_scan.json | jq -r '.llm_proposal')
-          MODEL=$(cat mcp_scan.json | jq -r '.model_used // "N/A"')
+          COUNT=$(jq -r '.findings | length' mcp_scan.json)
+          REPORT=$(jq -r '.llm_proposal' mcp_scan.json)
+          MODEL=$(jq -r '.model_used // "N/A"' mcp_scan.json)
 
-          BODY="$(cat << 'EOF'
+          cat << 'EOF' > body.md
 ### MCP Security Validation
 **Server:** http://172.28.0.12:8000
 EOF
-)
-          BODY="$BODY
-**Findings:** ${COUNT}
-**Model:** ${MODEL}
 
-**Proposed remediation (LLM):**
-\`\`\`
-${REPORT}
-\`\`\`
-"
+          {
+            echo "**Findings:** ${COUNT}"
+            echo "**Model:** ${MODEL}"
+            echo
+            echo "**Proposed remediation (LLM):**"
+            echo '```'
+            echo "${REPORT}"
+            echo '```'
+          } >> body.md
 
-          gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+          gh pr comment ${{ github.event.pull_request.number }} --body-file body.md
 
       - name: Show MCP scan output
         if: always()
