@@ -55,12 +55,12 @@ jobs:
               headers={"Content-Type": "application/json"},
               method="POST",
           )
-          print(f"🔍 Calling MCP server at {MCP_URL} ...")
+          print(f"Calling MCP server at {MCP_URL} ...")
           with urllib.request.urlopen(req) as resp:
               result = json.loads(resp.read().decode("utf-8"))
           with open("mcp_scan.json", "w") as f:
               json.dump(result, f, indent=2)
-          print("✅ Scan complete.")
+          print("Scan complete.")
           PY
 
       - name: Comment on PR with MCP report
@@ -72,9 +72,13 @@ jobs:
           REPORT=$(cat mcp_scan.json | jq -r '.llm_proposal')
           MODEL=$(cat mcp_scan.json | jq -r '.model_used // "N/A"')
 
-          BODY="### 🧩 MCP Security Validation
-**Server:** http://172.28.0.12:8000  
-**Findings:** ${COUNT}  
+          BODY="$(cat << 'EOF'
+### MCP Security Validation
+**Server:** http://172.28.0.12:8000
+EOF
+)
+          BODY="$BODY
+**Findings:** ${COUNT}
 **Model:** ${MODEL}
 
 **Proposed remediation (LLM):**
@@ -88,5 +92,5 @@ ${REPORT}
       - name: Show MCP scan output
         if: always()
         run: |
-          echo "📜 mcp_scan.json:"
+          echo "mcp_scan.json:"
           cat mcp_scan.json || true
