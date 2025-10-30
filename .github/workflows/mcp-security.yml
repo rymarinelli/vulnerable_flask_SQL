@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,19 +25,20 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
           python -m pip install --upgrade pip
-          pip install requests jq
+          python -m pip install requests
 
       - name: Download MCP server reference
         run: |
           curl -o mcp_server.py https://raw.githubusercontent.com/rymarinelli/MPC_OWASP_POC/main/mcp_server.py
 
       - name: Run MCP scan_repo (remote)
-        id: scan
         run: |
           python - << 'PY'
           import json, urllib.request, os
-          MCP_URL = os.getenv("MCP_SERVER_URL", "http://172.28.0.12:8000/call_tool")
+          mcp_url = os.getenv("MCP_SERVER_URL", "http://172.28.0.12:8000/call_tool")
           payload = {
               "tool_name": "scan_repo",
               "params": {
@@ -50,47 +49,43 @@ jobs:
           }
           data = json.dumps(payload).encode("utf-8")
           req = urllib.request.Request(
-              MCP_URL,
+              mcp_url,
               data=data,
               headers={"Content-Type": "application/json"},
               method="POST",
           )
-          print(f"Calling MCP server at {MCP_URL} ...")
+          print(f"Calling MCP server at {mcp_url} ...")
           with urllib.request.urlopen(req) as resp:
               result = json.loads(resp.read().decode("utf-8"))
           with open("mcp_scan.json", "w") as f:
-              json.dump(result, f, indent=2)
-          print("Scan complete.")
+              json.dump(result, f)
+          print("✅ Scan complete.")
           PY
 
-      - name: Comment on PR with MCP report
+      - name: Create PR comment body
+        if: github.event_name == 'pull_request'
+        run: |
+          COUNT=$(jq '.findings | length' mcp_scan.json)
+          REPORT=$(jq -r '.llm_proposal' mcp_scan.json)
+          MODEL=$(jq -r '.model_used // "N/A"' mcp_scan.json)
+
+          {
+            echo "### 🧩 MCP Security Validation"
+            echo "**Server:** http://172.28.0.12:8000"
+            echo "**Findings:** ${COUNT}"
+            echo "**Model:** ${MODEL}"
+            echo ""
+            echo "#### Proposed remediation (LLM):"
+            echo "${REPORT}"
+          } > body.md
+
+      - name: Post PR comment
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COUNT=$(jq -r '.findings | length' mcp_scan.json)
-          REPORT=$(jq -r '.llm_proposal' mcp_scan.json)
-          MODEL=$(jq -r '.model_used // "N/A"' mcp_scan.json)
-
-          cat << 'EOF' > body.md
-### MCP Security Validation
-**Server:** http://172.28.0.12:8000
-EOF
-
-          {
-            echo "**Findings:** ${COUNT}"
-            echo "**Model:** ${MODEL}"
-            echo
-            echo "**Proposed remediation (LLM):**"
-            echo '```'
-            echo "${REPORT}"
-            echo '```'
-          } >> body.md
-
           gh pr comment ${{ github.event.pull_request.number }} --body-file body.md
 
       - name: Show MCP scan output
         if: always()
-        run: |
-          echo "mcp_scan.json:"
-          cat mcp_scan.json || true
+        run: cat mcp_scan.json || true
