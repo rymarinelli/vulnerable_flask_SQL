@@ -1,0 +1,21 @@
+MCP automated report generated 20251031_152537Z
+13 findings.
+
+Risk Summary:
+The application has several security vulnerabilities related to SQL injection and template injection. These issues could potentially allow an attacker to steal or modify sensitive data, execute arbitrary code, or perform cross-site scripting attacks. Additionally, the application is currently running in debug mode, which could leak sensitive information.
+
+Prioritized Remediation Steps:
+1. Use parameterized queries instead of manually constructing SQL strings. This can be achieved using Django's QuerySets or SQLAlchemy's ORM.
+2. Avoid using string formatting to create templates. Instead, use a templating engine that supports safe string formatting or use a library like Flask-WTF to sanitize user input.
+3. Disable debug mode in production environments. This can be done by setting the 'debug' flag to False in the Flask configuration or by using system environment variables.
+
+Example Code/Patterns:
+
+Parameterized Queries (Django):
+```python
+from django.db import connection
+from django.db.models import F
+
+def get_user_data(user_id):
+    with connection.cursor() as cursor:
+        query =
